@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebKit / VideoFrame – jednoduchý test</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:24px;line-height:1.45}
+  h1{font-size:28px}
+  button{font-size:20px;padding:14px 20px;border-radius:12px;border:1px solid #888;background:#eee}
+  pre{white-space:pre-wrap;background:#f3f3f3;padding:16px;border-radius:12px}
+  .note{color:#555}
+</style>
+</head>
+<body>
+<h1>WebKit / VideoFrame test</h1>
+
+<p>
+Tento test pouze zkouší, zda prohlížeč při vytvoření
+<code>VideoFrame</code> z <code>Canvas</code> změní zadaný čas
+(<code>timestamp</code>). Nepoužívá kameru, mikrofon ani nahrávání.
+</p>
+
+<button id="run">Spustit test</button>
+
+<p class="note">Po klepnutí počkejte několik sekund.</p>
+<pre id="out">Test zatím nebyl spuštěn.</pre>
+
+<script>
+const out = document.getElementById("out");
+
+function line(s="") {
+  out.textContent += s + "\n";
+}
+
+document.getElementById("run").addEventListener("click", () => {
+  out.textContent = "";
+
+  line("WebKit / VideoFrame test");
+  line("========================");
+  line("User-Agent:");
+  line(navigator.userAgent);
+  line("");
+
+  if (!("VideoFrame" in window)) {
+    line("VÝSLEDEK: Tento prohlížeč zde nemá dostupné VideoFrame.");
+    line("");
+    line("To samo o sobě není důkaz anomálie.");
+    line("Test pouze nelze v tomto prohlížeči provést.");
+    return;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 2;
+  canvas.height = 2;
+
+  // Hodnoty odpovídající oblasti popsané v reportu.
+  const values = [
+    0, 1, 999, 1000, 1001,
+    1001000, 1003000, 1005000, 1007000, 1009000,
+    2000000, 5000000, 10000000
+  ];
+
+  let mismatches = [];
+
+  line("VideoFrame je dostupný.");
+  line("Testuji zadané hodnoty timestampu...");
+  line("");
+
+  for (const requested of values) {
+    try {
+      const frame = new VideoFrame(canvas, { timestamp: requested });
+      const actual = frame.timestamp;
+      const delta = actual - requested;
+
+      line(
+        requested.toString().padStart(9) +
+        "  ->  " +
+        actual.toString().padStart(9) +
+        "   rozdíl: " +
+        (delta >= 0 ? "+" : "") + delta
+      );
+
+      if (actual !== requested) {
+        mismatches.push({requested, actual, delta});
+      }
+
+      frame.close();
+    } catch (e) {
+      line(requested + "  ->  CHYBA: " + e);
+    }
+  }
+
+  line("");
+  line("------------------------");
+
+  if (mismatches.length === 0) {
+    line("VÝSLEDEK: U testovaných hodnot nebyla zjištěna změna.");
+  } else {
+    line("VÝSLEDEK: Byly nalezeny změny timestampu.");
+    line("");
+    line("Počet změněných hodnot: " + mismatches.length);
+    line("");
+    line("Změněné hodnoty:");
+    for (const x of mismatches) {
+      line(
+        x.requested + " -> " + x.actual +
+        "  (rozdíl " + x.delta + " μs)"
+      );
+    }
+  }
+
+  line("");
+  line("Důležité: tento výsledek sám o sobě neurčuje, proč k případné změně dochází.");
+  line("Je to pouze přímé měření chování VideoFrame v tomto prohlížeči.");
+});
+</script>
+</body>
+</html>
